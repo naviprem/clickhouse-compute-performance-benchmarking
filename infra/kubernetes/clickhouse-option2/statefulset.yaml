@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: clickhouse-option2
+  namespace: clickhouse
+  labels:
+    app: clickhouse-option2
+    option: "2"
+    purpose: data-ingestion
+spec:
+  serviceName: clickhouse-option2
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickhouse-option2
+  template:
+    metadata:
+      labels:
+        app: clickhouse-option2
+        option: "2"
+        purpose: data-ingestion
+    spec:
+      serviceAccountName: clickhouse-option2-sa
+      containers:
+      - name: clickhouse
+        image: clickhouse/clickhouse-server:23.8
+        ports:
+        - containerPort: 8123
+          name: http
+        - containerPort: 9000
+          name: native
+        env:
+        - name: CLICKHOUSE_DB
+          value: "metrics_ingested"
+        - name: CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT
+          value: "1"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/clickhouse
+        - name: config
+          mountPath: /etc/clickhouse-server/config.d/
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 8123
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /ping
+            port: 8123
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+      - name: config
+        configMap:
+          name: clickhouse-option2-config
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: gp3
+      resources:
+        requests:
+          storage: 50Gi

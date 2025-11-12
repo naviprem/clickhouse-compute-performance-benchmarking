@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-generator
+  namespace: clickhouse
+  labels:
+    app: metrics-generator
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: metrics-generator
+  template:
+    metadata:
+      labels:
+        app: metrics-generator
+    spec:
+      containers:
+      - name: generator
+        image: <your-docker-repo>/metrics-generator:latest
+        env:
+        - name: OTEL_ENDPOINT
+          value: "otel-collector:4317"
+        - name: SERVICE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: INTERVAL_SECONDS
+          value: "5"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

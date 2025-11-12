@@ -1,0 +1,20 @@
+{
+  "Rules": [
+    {
+      "ID": "DeleteOldRawFiles",
+      "Status": "Enabled",
+      "Prefix": "raw/",
+      "Expiration": {
+        "Days": 7
+      }
+    },
+    {
+      "ID": "DeleteOldProcessedFiles",
+      "Status": "Enabled",
+      "Prefix": "processed/",
+      "Expiration": {
+        "Days": 14
+      }
+    }
+  ]
+}

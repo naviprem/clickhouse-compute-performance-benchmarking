@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clickhouse-option2-config
+  namespace: clickhouse
+data:
+  storage.xml: |
+    <clickhouse>
+      <!-- Enable HTTP server -->
+      <http_port>8123</http_port>
+      <listen_host>0.0.0.0</listen_host>
+
+      <!-- More aggressive memory settings for performance -->
+      <max_server_memory_usage_to_ram_ratio>0.8</max_server_memory_usage_to_ram_ratio>
+
+      <!-- Merge settings for MergeTree engine -->
+      <merge_tree>
+        <max_suspicious_broken_parts>5</max_suspicious_broken_parts>
+      </merge_tree>
+
+      <!-- Keep free space on disk -->
+      <path>/var/lib/clickhouse/</path>
+      <tmp_path>/var/lib/clickhouse/tmp/</tmp_path>
+    </clickhouse>
+
+  users.xml: |
+    <clickhouse>
+      <users>
+        <default>
+          <password>clickhouse_option2</password>
+          <networks>
+            <ip>::/0</ip>
+          </networks>
+        </default>
+      </users>
+    </clickhouse>

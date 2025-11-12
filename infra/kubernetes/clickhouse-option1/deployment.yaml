@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clickhouse-option1
+  namespace: clickhouse
+  labels:
+    app: clickhouse-option1
+    option: "1"
+    purpose: s3-query
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickhouse-option1
+  template:
+    metadata:
+      labels:
+        app: clickhouse-option1
+        option: "1"
+        purpose: s3-query
+    spec:
+      serviceAccountName: clickhouse-option1-sa
+      containers:
+      - name: clickhouse
+        image: clickhouse/clickhouse-server:23.8
+        ports:
+        - containerPort: 8123
+          name: http
+        - containerPort: 9000
+          name: native
+        env:
+        - name: CLICKHOUSE_DB
+          value: "metrics_s3"
+        - name: CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT
+          value: "1"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: secret_access_key
+        - name: AWS_REGION
+          value: "us-east-1"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        volumeMounts:
+        - name: config
+          mountPath: /etc/clickhouse-server/config.d/
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 8123
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /ping
+            port: 8123
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+      - name: config
+        configMap:
+          name: clickhouse-option1-config

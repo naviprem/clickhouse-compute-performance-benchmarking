@@ -1,0 +1,144 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: otel-collector
+  namespace: clickhouse
+  labels:
+    app: otel-collector
+spec:
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      serviceAccountName: otel-collector-sa
+      containers:
+      - name: otel-collector
+        image: otel/opentelemetry-collector-contrib:0.91.0
+        args:
+          - --config=/conf/collector.yaml
+        ports:
+        - containerPort: 4317
+          name: otlp-grpc
+          protocol: TCP
+        - containerPort: 4318
+          name: otlp-http
+          protocol: TCP
+        volumeMounts:
+        - name: config
+          mountPath: /conf
+        - name: logs
+          mountPath: /var/log/otel
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "200m"
+
+      # Sidecar container to sync files to S3
+      - name: s3-sync
+        image: amazon/aws-cli:latest
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            #!/bin/sh
+            set -e
+
+            S3_BUCKET="${S3_BUCKET:-clickhouse-demo-metrics-np-2025}"
+            RAW_PREFIX="${RAW_PREFIX:-raw}"
+            SYNC_INTERVAL="${SYNC_INTERVAL:-60}"
+
+            echo "Starting S3 sync sidecar..."
+            echo "S3 Bucket: s3://$S3_BUCKET/$RAW_PREFIX/"
+            echo "Sync interval: ${SYNC_INTERVAL}s"
+
+            while true; do
+              # Process the active metrics.json file if it exists and has content
+              if [ -f /var/log/otel/metrics.json ] && [ -s /var/log/otel/metrics.json ]; then
+                filesize=$(stat -c%s /var/log/otel/metrics.json 2>/dev/null || stat -f%z /var/log/otel/metrics.json 2>/dev/null || echo 0)
+
+                # Only upload if file is larger than 50KB to avoid uploading empty/tiny files
+                if [ "$filesize" -gt 51200 ]; then
+                  timestamp=$(date -u +"%Y-%m-%d %H:%M:%S")
+                  year=$(date -u +"%Y")
+                  month=$(date -u +"%m")
+                  day=$(date -u +"%d")
+                  hour=$(date -u +"%H")
+                  unix_timestamp=$(date +%s)
+
+                  # Create unique filename with timestamp
+                  s3_filename="metrics-${unix_timestamp}.json"
+                  s3_path="s3://$S3_BUCKET/$RAW_PREFIX/year=$year/month=$month/day=$day/hour=$hour/$s3_filename"
+
+                  echo "[$timestamp] Uploading active file (${filesize} bytes) -> $s3_path"
+
+                  # Copy file to temp location, upload, then truncate original
+                  cp /var/log/otel/metrics.json /tmp/metrics-temp.json
+
+                  if aws s3 cp /tmp/metrics-temp.json "$s3_path"; then
+                    echo "  ✓ Successfully uploaded"
+                    # Truncate the original file to prevent re-uploading same data
+                    > /var/log/otel/metrics.json
+                    rm -f /tmp/metrics-temp.json
+                  else
+                    echo "  ✗ Upload failed, will retry"
+                    rm -f /tmp/metrics-temp.json
+                  fi
+                fi
+              fi
+
+              # Also process any rotated files (just in case rotation works)
+              find /var/log/otel -name "*.json.*" -type f -mmin +0.5 2>/dev/null | while read file; do
+                if [ -f "$file" ]; then
+                  timestamp=$(date -u +"%Y-%m-%d %H:%M:%S")
+                  year=$(date -u +"%Y")
+                  month=$(date -u +"%m")
+                  day=$(date -u +"%d")
+                  hour=$(date -u +"%H")
+                  unix_timestamp=$(date +%s)
+
+                  s3_filename="metrics-${unix_timestamp}.json"
+                  s3_path="s3://$S3_BUCKET/$RAW_PREFIX/year=$year/month=$month/day=$day/hour=$hour/$s3_filename"
+
+                  echo "[$timestamp] Uploading rotated file: $file -> $s3_path"
+
+                  if aws s3 cp "$file" "$s3_path"; then
+                    echo "  ✓ Successfully uploaded"
+                    rm -f "$file"
+                  else
+                    echo "  ✗ Upload failed, will retry"
+                  fi
+                fi
+              done
+
+              sleep $SYNC_INTERVAL
+            done
+        env:
+        - name: S3_BUCKET
+          value: "clickhouse-demo-metrics-np-2025"
+        - name: RAW_PREFIX
+          value: "raw"
+        - name: SYNC_INTERVAL
+          value: "60"
+        volumeMounts:
+        - name: logs
+          mountPath: /var/log/otel
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "100m"
+      volumes:
+      - name: config
+        configMap:
+          name: otel-collector-config
+      - name: logs
+        emptyDir: {}

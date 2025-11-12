@@ -1,0 +1,37 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: parquet-converter
+  namespace: clickhouse
+spec:
+  # Run every 10 minutes
+  schedule: "*/10 * * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: parquet-converter-sa
+          restartPolicy: OnFailure
+          containers:
+          - name: converter
+            image: <your-docker-repo>/parquet-converter:latest
+            env:
+            - name: S3_BUCKET
+              value: "clickhouse-demo-metrics-np-2025"
+            - name: RAW_PREFIX
+              value: "raw"
+            - name: PROCESSED_PREFIX
+              value: "processed"
+            - name: ARCHIVE_PREFIX
+              value: "archive"
+            - name: LOOKBACK_HOURS
+              value: "0.2"
+            resources:
+              requests:
+                memory: "512Mi"
+                cpu: "200m"
+              limits:
+                memory: "1Gi"
+                cpu: "500m"

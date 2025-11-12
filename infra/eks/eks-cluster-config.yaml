@@ -1,0 +1,44 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: clickhouse-demo-np
+  region: us-east-1
+  version: "1.31"
+
+# For demo: Use managed node group with small instances
+managedNodeGroups:
+  - name: demo-nodes
+    instanceType: t3.medium
+    desiredCapacity: 3
+    minSize: 2
+    maxSize: 4
+    volumeSize: 30
+    labels:
+      role: worker
+    tags:
+      Project: clickhouse-demo
+      Environment: demo
+    iam:
+      withAddonPolicies:
+        imageBuilder: true
+        autoScaler: true
+        externalDNS: true
+        certManager: true
+        appMesh: false
+        ebs: true
+        fsx: false
+        efs: true
+        albIngress: true
+        cloudWatch: true
+
+# Simple VPC configuration
+vpc:
+  cidr: 10.0.0.0/16
+  nat:
+    gateway: Single  # Use single NAT gateway for demo (cost saving)
+
+# CloudWatch logging (optional for demo)
+cloudWatch:
+  clusterLogging:
+    enableTypes: ["api", "audit", "authenticator", "controllerManager", "scheduler"]
