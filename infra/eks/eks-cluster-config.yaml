@@ -4,13 +4,13 @@ kind: ClusterConfig
 metadata:
   name: clickhouse-demo-np
   region: us-east-1
-  version: "1.31"
+  version: "1.32"
 
 # For demo: Use managed node group with small instances
 managedNodeGroups:
   - name: demo-nodes
-    instanceType: t3.medium
-    desiredCapacity: 3
+    instanceType: t3.small
+    desiredCapacity: 2
     minSize: 2
     maxSize: 4
     volumeSize: 30

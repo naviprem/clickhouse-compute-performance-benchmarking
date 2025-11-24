@@ -156,6 +156,10 @@ eksctl utils associate-iam-oidc-provider \
   --approve \
   --profile clickhouse-demo
 
+#
+CLUSTER_NAME=clickhouse-demo-np
+echo "$CLUSTER_NAME"
+
 # Verify kubectl is configured
 kubectl get nodes
 
@@ -185,7 +189,7 @@ kubectl create namespace metrics-pipeline
 kubectl get namespaces
 ```
 
-- [x] Create IAM Ploicy for S3 Access
+- [x] Create IAM Policy for S3 Access
 
 ```bash
 # Create policy
@@ -198,6 +202,21 @@ POLICY_ARN="$(aws iam list-policies --scope Local \
   --output text \
   --profile clickhouse-demo)"
 echo "$POLICY_ARN"
+
+# Clean-up
+# List all entities attached to the policy
+aws iam list-entities-for-policy \
+  --policy-arn "$POLICY_ARN" \
+  --profile clickhouse-demo
+
+# Detach from user (if attached)
+aws iam detach-user-policy \
+  --user-name <USERNAME> \
+  --policy-arn "$POLICY_ARN" \
+  --profile clickhouse-demo
+
+# Then delete
+aws iam delete-policy --policy-arn "$POLICY_ARN" --profile clickhouse-demo
 
 ```
 
@@ -212,7 +231,8 @@ eksctl create iamserviceaccount \
   --name=otel-collector-sa \
   --attach-policy-arn=${POLICY_ARN} \
   --approve \
-  --override-existing-serviceaccounts
+  --override-existing-serviceaccounts \
+  --profile clickhouse-demo
 
 # Create service account for Parquet Converter
 eksctl create iamserviceaccount \
@@ -221,13 +241,28 @@ eksctl create iamserviceaccount \
   --name=parquet-converter-sa \
   --attach-policy-arn=${POLICY_ARN} \
   --approve \
-  --override-existing-serviceaccounts
+  --override-existing-serviceaccounts \
+  --profile clickhouse-demo
+
+# Create service account for Parquet Converter
+eksctl create iamserviceaccount \
+  --cluster=${CLUSTER_NAME} \
+  --namespace=clickhouse \
+  --name=clickhouse-option1-sa \
+  --attach-policy-arn=${POLICY_ARN} \
+  --approve \
+  --override-existing-serviceaccounts \
+  --profile clickhouse-demo
 
 # Verify IRSA role
 kubectl describe sa otel-collector-sa -n clickhouse
+kubectl describe sa parquet-converter-sa -n clickhouse
+kubectl describe sa clickhouse-option1-sa -n clickhouse
 
 # To delete a service account
 kubectl delete serviceaccount otel-collector-sa -n clickhouse
+kubectl delete serviceaccount parquet-converter-sa -n clickhouse
+kubectl delete serviceaccount clickhouse-option1-sa -n clickhouse
 ```
 
 - Save Configuration for Later
@@ -264,12 +299,12 @@ source setup-env.sh
 
 ```bash
 # Delete service accounts
-eksctl delete iamserviceaccount --name otel-collector-sa --namespace metrics-pipeline --cluster clickhouse-demo-cluster --profile clickhouse-demo
-eksctl delete iamserviceaccount --name parquet-converter-sa --namespace metrics-pipeline --cluster clickhouse-demo-cluster --profile clickhouse-demo
-eksctl delete iamserviceaccount --name clickhouse-sa --namespace clickhouse --cluster clickhouse-demo-cluster --profile clickhouse-demo
+eksctl delete iamserviceaccount --name otel-collector-sa --namespace metrics-pipeline --cluster clickhouse-demo-np --profile clickhouse-demo
+eksctl delete iamserviceaccount --name parquet-converter-sa --namespace metrics-pipeline --cluster clickhouse-demo-np --profile clickhouse-demo
+eksctl delete iamserviceaccount --name clickhouse-option1-sa --namespace clickhouse --cluster clickhouse-demo-np --profile clickhouse-demo
 
 # Delete EKS cluster
-eksctl delete cluster --name clickhouse-demo-cluster --profile clickhouse-demo
+eksctl delete cluster --name clickhouse-demo-np --profile clickhouse-demo
 
 # Empty and delete S3 bucket
 aws s3 rm s3://$BUCKET_NAME --recursive --profile clickhouse-demo

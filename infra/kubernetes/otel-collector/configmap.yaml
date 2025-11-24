@@ -24,16 +24,20 @@ data:
           - key: collector.name
             value: otel-collector
             action: insert
+          - key: k8s.pod.name
+            value: ${POD_NAME}
+            action: upsert
 
     exporters:
       # File exporter to write JSON to local disk
-      file:
-        path: /var/log/otel/metrics.json
-        rotation:
-          max_megabytes: 0.1
-          max_days: 1
-          max_backups: 100
-        format: json
+      awss3:
+        s3uploader:
+          region: 'us-east-1'  # Update to your region
+          s3_bucket: 'clickhouse-demo-metrics-np-2025'
+          s3_prefix: 'raw/'
+          s3_partition: 'hour'
+          file_prefix: 'metrics-'
+        marshaler: otlp_json
 
       # Logging exporter for debugging
       logging:
@@ -46,4 +50,5 @@ data:
         metrics:
           receivers: [otlp]
           processors: [batch, resource]
-          exporters: [file, logging]
+          exporters: [awss3]
+  

@@ -32,6 +32,21 @@ kubectl describe sa clickhouse-option1-sa -n clickhouse
 kubectl delete serviceaccount clickhouse-option1-sa -n clickhouse
 ```
 
+_ Add these environment variables to configmap.yaml, incase you want to use access key and secret instead of service account (not recommended)
+
+```yaml
+- name: AWS_ACCESS_KEY_ID
+  valueFrom:
+    secretKeyRef:
+      name: aws-credentials
+      key: access_key_id
+- name: AWS_SECRET_ACCESS_KEY
+  valueFrom:
+    secretKeyRef:
+      name: aws-credentials
+      key: secret_access_key
+```
+
 - Setup infra for Option 1
 
 ```bash
@@ -67,7 +82,7 @@ kubectl get svc clickhouse-option1 -n clickhouse
 kubectl exec -it -n clickhouse $(kubectl get pod -l app=clickhouse-option1 -n clickhouse -o jsonpath='{.items[0].metadata.name}') -- clickhouse-client --query="SELECT 'Option 1 is ready!'"
 ```
 
-- Create Kubernetes service accounts with IRSA for option 1 (optional):
+- Create Kubernetes service accounts with IRSA for option 2 (optional):
 
 ```bash
 # Create service account for Parquet Converter

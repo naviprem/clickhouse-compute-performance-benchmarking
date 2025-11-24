@@ -3,6 +3,8 @@
 - [x] Build and push Metrics Generator Docker image:
 
 ```bash
+export AWS_ACCOUNT_ID=<ACCOUNT_ID>
+
 # CD into metrics generator app directory
 cd apps/metrics-generator
 
@@ -24,6 +26,9 @@ aws ecr create-repository --repository-name metrics-generator --region us-east-1
 
 # Push
 docker push ${METRICS_GENERATOR_IMAGE}:latest
+
+# Back to root directory
+cd ../..
 ```
 
 - [x] Deploy Metrics Generator
@@ -37,7 +42,6 @@ kubectl delete deployment metrics-generator -n clickhouse
 
 # To restart 
 kubectl rollout restart deployment/metrics-generator -n clickhouse
-
 
 # Watch rollout
 kubectl rollout status deployment/metrics-generator -n clickhouse
@@ -162,7 +166,6 @@ kubectl delete serviceaccount parquet-converter-sa -n clickhouse
 - Deploy Parquet Converter CronJob
 
 ```bash
-cd infra/kubernetes/parquet-converter
 
 # Deploy
 kubectl apply -f infra/kubernetes/parquet-converter/cronjob.yaml

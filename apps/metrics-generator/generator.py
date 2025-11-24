@@ -17,7 +17,7 @@ from opentelemetry.sdk.resources import Resource
 # Configuration
 OTEL_ENDPOINT = os.getenv("OTEL_ENDPOINT", "otel-collector:4317")
 SERVICE_NAME = os.getenv("SERVICE_NAME", "demo-service")
-INTERVAL_SECONDS = int(os.getenv("INTERVAL_SECONDS", "5"))
+INTERVAL_SECONDS = int(os.getenv("INTERVAL_SECONDS", "30"))
 
 # Service attributes
 resource = Resource.create({
