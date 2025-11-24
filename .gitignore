@@ -94,3 +94,5 @@ infra/kubernetes/clickhouse-option1/serviceaccount.yaml
 # Ignore parquet-converter cronjob manifest
 infra/kubernetes/parquet-converter/cronjob.yaml
 CLAUDE.md
+infra/kubernetes/dashboard/frontend-deployment.yaml
+infra/kubernetes/dashboard/backend-deployment.yaml
